@@ -70,8 +70,6 @@ function import() {
   # Start at 1 because Git won't save if duplicate of stash 0.
   for i in $(seq 1 $(expr ${#all[@]} - 1))
   do
-    echo $i
-    echo $SHA
     # If commit matches existing stash, abort early.
     diff <(git rev-parse stash@{$i}) <(git rev-parse $SHA) >/dev/null && return 0
   done
