@@ -1,12 +1,21 @@
 #!/bin/bash
 
 function usage() {
-  echo 'usage: git rstash push <stash> [<remote>]'
+  echo 'usage: git rstash list [<remote>]'
+  echo '   or: git rstash push <stash> [<remote>]'
   echo '   or: git rstash fetch [<remote>]'
-  echo '   or: git rstash drop <stash> [<remote>]'
+  echo '   or: git rstash drop <stash> [<remote>] ['\''y'\''|'\''n'\'']'
   echo '   or: git rstash import <SHA>'
   echo '   or: git rstash push-all [<remote>]'
+  echo '   or: git rstash drop-all [<remote>]'
   echo '   or: git rstash import-all'
+}
+
+function list() {
+  remote=origin
+  [ -z "$1" ] || remote="$1"
+
+  git ls-remote "$remote" refs/stashes/* | awk '{print $1}' | awk '!/^$/'
 }
 
 function push() {
@@ -33,8 +42,13 @@ function drop() {
   shift
   [ -z "$1" ] || remote="$1"
   stashCommit=$(git rev-parse --short stash@{$stashNum})
-
-  read -p "Really delete stash $stashNum (commit $stashCommit) from $remote? " answer
+  shift
+  if [ -z "$1" ]
+  then
+    read -p "Really delete stash $stashNum (commit $stashCommit) from $remote? " answer
+  else
+    answer="$1"
+  fi
   if [ "$answer" == 'y' ]
   then
     git push $remote :refs/stashes/$stashCommit
@@ -51,9 +65,13 @@ function import() {
     SHA="$1"
   fi
 
+  all=($(git show-ref refs/stashes/* | awk '{print $1}' | awk '!/^$/'))
+
   # Start at 1 because Git won't save if duplicate of stash 0.
-  for i in $(seq 1 $(expr $(git rev-list --walk-reflogs --count stash) - 1))
+  for i in $(seq 1 $(expr ${#all[@]} - 1))
   do
+    echo $i
+    echo $SHA
     # If commit matches existing stash, abort early.
     diff <(git rev-parse stash@{$i}) <(git rev-parse $SHA) >/dev/null && return 0
   done
@@ -71,20 +89,36 @@ function push-all() {
   done
 }
 
+function drop-all() {
+  remote=origin
+  [ -z "$1" ] || remote="$1"
+  all=($(list $remote))
+  if [ ${#all[@]} == 0 ]
+  then
+    echo 'Error: no stashes found in remote.'
+  fi
+
+  for stash in $all
+  do
+    drop "$stash" "$remote" "y"
+  done
+}
+
 function import-all() {
+  all=($(ls .git/refs/stashes))
   if [ ! -d .git/refs/stashes ]
   then
     echo 'Error: no stashes fetched or not in a Git repo.'
   fi
 
-  for stash in $(ls .git/refs/stashes)
+  for stash in $all
   do
     import "$stash"
   done
 }
 
 case "$1" in
-  push|push-all|fetch|import|import-all)
+  list|push|push-all|fetch|import|import-all|drop-all)
     "$@"
     ;;
   drop|remove|delete)
