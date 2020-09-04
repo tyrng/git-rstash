@@ -6,12 +6,14 @@ Transfer your Git stashes to and from remotes with ease!
 Place or link `git-rstash` somewhere on your `PATH`, then:
 
 ```
-usage: git rstash push <stash> [<remote>]'
-   or: git rstash fetch [<remote>]'
-   or: git rstash drop <stash> [<remote>]'
-   or: git rstash import <SHA>'
-   or: git rstash push-all [<remote>]'
-   or: git rstash import-all'
+usage: git rstash list [<remote>]
+   or: git rstash push <stash> [<remote>]
+   or: git rstash fetch [<remote>]
+   or: git rstash drop <stash> [<remote>] ['y'|'n']
+   or: git rstash import <SHA>
+   or: git rstash push-all [<remote>]
+   or: git rstash drop-all [<remote>]
+   or: git rstash import-all
 ```
 
 where `<stash>` is a stash number, `<SHA>` is a (short or long) SHA commit hash, and `[<remote>]` is an (optional) remote to operate on.
