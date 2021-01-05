@@ -65,13 +65,13 @@ function import() {
     SHA="$1"
   fi
 
-  all=($(git show-ref refs/stashes/* | awk '{print $1}' | awk '!/^$/'))
+  all=($(git stash list | awk '{print $1}' | awk '!/^$/' | sed 's/.$//'))
 
   # Start at 1 because Git won't save if duplicate of stash 0.
-  for i in $(seq 1 $(expr ${#all[@]} - 1))
+  for i in ${all}
   do
     # If commit matches existing stash, abort early.
-    diff <(git rev-parse stash@{$i}) <(git rev-parse $SHA) >/dev/null && return 0
+    diff <(git rev-parse $i) <(git rev-parse $SHA) >/dev/null && return 0
   done
 
   git stash store --message "$(git show --no-patch --format=format:%s $SHA)" $SHA
