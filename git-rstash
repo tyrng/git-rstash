@@ -1,13 +1,20 @@
 #!/bin/bash
 
 function usage() {
-  echo 'usage: git rstash list [<remote>]'
-  echo '   or: git rstash pull [<remote>]'
+  echo 'usage: git rstash list [<user>] [<remote>]'
+  echo '   or: git rstash pull [<user>] [<remote>]'
   echo '   or: git rstash push [<remote>]'
-  echo '   or: git rstash purge [<remote>]'
+  echo '   or: git rstash purge [<user>] [<remote>]'
   echo ''
   echo 'advanced usages:'
+  echo 'git rstash list-all [<remote>]'
+  echo 'git rstash list-sha [<user>] [<remote>]'
+  echo 'git rstash list-sha-all [<remote>]'
+  echo 'git rstash pull-all [<remote>]'
+  echo 'git rstash pull-only [<user>] [<remote>]'
+  echo 'git rstash pull-only-all [<remote>]'
   echo 'git rstash push-one <stash> [<remote>]'
+  echo 'git rstash purge-all [<remote>]'
   echo 'git rstash drop <stash> [<remote>] ['\''y'\''|'\''n'\'']'
   echo 'git rstash import <SHA>'
   echo 'git rstash import-all'
@@ -15,6 +22,31 @@ function usage() {
 }
 
 function list() {
+  username=$(git config user.name)
+  [ -z "$1" ] || username="$1"
+  remote=origin
+  [ -z "$2" ] || remote="$2"
+
+  git ls-remote "$remote" refs/stashes/$username/* | awk '{print $2}' | awk '!/^$/'
+}
+
+function list-sha() {
+  username=$(git config user.name)
+  [ -z "$1" ] || username="$1"
+  remote=origin
+  [ -z "$2" ] || remote="$2"
+
+  git ls-remote "$remote" refs/stashes/$username/* | awk '{print $1}' | awk '!/^$/'
+}
+
+function list-all() {
+  remote=origin
+  [ -z "$1" ] || remote="$1"
+
+  git ls-remote "$remote" refs/stashes/* | awk '{print $2}' | awk '!/^$/'
+}
+
+function list-sha-all() {
   remote=origin
   [ -z "$1" ] || remote="$1"
 
@@ -22,16 +54,27 @@ function list() {
 }
 
 function push-one() {
+  username=$(git config user.name)
+
   [ -z "$1" ] && echo 'Error: please specify a stash number to push.' && exit 2
   remote=origin
   [ -z "$2" ] || remote="$2"
 
   echo "Pushing stash $1 to $remote."
 
-  git push $remote stash@{$1}:refs/stashes/$(git rev-parse --short stash@{$1})
+  git push $remote stash@{$1}:refs/stashes/$username/$(git rev-parse --short stash@{$1})
 }
 
 function pull-only() {
+  username=$(git config user.name)
+  [ -z "$1" ] || username="$1"
+  remote=origin
+  [ -z "$2" ] || remote="$2"
+
+  git fetch "$remote" refs/stashes/$username/*:refs/stashes/$username/*
+}
+
+function pull-only-all() {
   remote=origin
   [ -z "$1" ] || remote="$1"
 
@@ -39,7 +82,20 @@ function pull-only() {
 }
 
 function pull() {
-  pull-only
+  username=$(git config user.name)
+  [ -z "$1" ] || username="$1"
+  remote=origin
+  [ -z "$2" ] || remote="$2"
+
+  pull-only $username $remote
+  import-all
+}
+
+function pull-all() {
+  remote=origin
+  [ -z "$1" ] || remote="$1"
+  
+  pull-only-all $remote
   import-all
 }
 
@@ -59,7 +115,7 @@ function drop() {
   fi
   if [ "$answer" == 'y' ]
   then
-    git push $remote :refs/stashes/$stashCommit
+    git push $remote :refs/stashes/$username/$stashCommit
   fi
 }
 
@@ -96,9 +152,11 @@ function push() {
 }
 
 function purge() {
+  username=$(git config user.name)
+  [ -z "$1" ] || username="$1"
   remote=origin
-  [ -z "$1" ] || remote="$1"
-  all=($(list $remote))
+  [ -z "$2" ] || remote="$2"
+  all=($(list-sha $username $remote))
   if [ ${#all[@]} == 0 ]
   then
     echo 'Error: no stashes found in remote.'
@@ -110,12 +168,30 @@ function purge() {
   done
 }
 
+function purge-all() {
+  remote=origin
+  [ -z "$1" ] || remote="$1"
+  all=($(list-all $remote))
+  if [ ${#all[@]} == 0 ]
+  then
+    echo 'Error: no stashes found in remote.'
+    return 0
+  fi
+
+  for stash in $all
+  do
+    git push "$remote" :"$stash"
+  done
+}
+
 function import-all() {
-  all=($(ls .git/refs/stashes))
   if [ ! -d .git/refs/stashes ]
   then
     echo 'Error: no stashes pulled or not in a Git repo.'
+    return 0
   fi
+
+  all=($(find .git/refs/stashes -type f -exec basename {} \;))
 
   for stash in $all
   do
@@ -124,7 +200,7 @@ function import-all() {
 }
 
 case "$1" in
-  list|push|push-one|pull|pull-only|import|import-all|purge)
+  list|list-all|list-sha|list-sha-all|push|push-one|pull|pull-all|pull-only|pull-only-all|import|import-all|purge|purge-all)
     "$@"
     ;;
   drop|remove|delete)
