@@ -2,13 +2,16 @@
 
 function usage() {
   echo 'usage: git rstash list [<remote>]'
-  echo '   or: git rstash push <stash> [<remote>]'
-  echo '   or: git rstash fetch [<remote>]'
-  echo '   or: git rstash drop <stash> [<remote>] ['\''y'\''|'\''n'\'']'
-  echo '   or: git rstash import <SHA>'
-  echo '   or: git rstash push-all [<remote>]'
-  echo '   or: git rstash drop-all [<remote>]'
-  echo '   or: git rstash import-all'
+  echo '   or: git rstash pull [<remote>]'
+  echo '   or: git rstash push [<remote>]'
+  echo '   or: git rstash purge [<remote>]'
+  echo ''
+  echo 'advanced usages:'
+  echo 'git rstash push-one <stash> [<remote>]'
+  echo 'git rstash drop <stash> [<remote>] ['\''y'\''|'\''n'\'']'
+  echo 'git rstash import <SHA>'
+  echo 'git rstash import-all'
+  echo ''
 }
 
 function list() {
@@ -18,7 +21,7 @@ function list() {
   git ls-remote "$remote" refs/stashes/* | awk '{print $1}' | awk '!/^$/'
 }
 
-function push() {
+function push-one() {
   [ -z "$1" ] && echo 'Error: please specify a stash number to push.' && exit 2
   remote=origin
   [ -z "$2" ] || remote="$2"
@@ -28,11 +31,16 @@ function push() {
   git push $remote stash@{$1}:refs/stashes/$(git rev-parse --short stash@{$1})
 }
 
-function fetch() {
+function pull-only() {
   remote=origin
   [ -z "$1" ] || remote="$1"
 
   git fetch "$remote" refs/stashes/*:refs/stashes/*
+}
+
+function pull() {
+  pull-only
+  import-all
 }
 
 function drop() {
@@ -77,17 +85,17 @@ function import() {
   git stash store --message "$(git show --no-patch --format=format:%s $SHA)" $SHA
 }
 
-function push-all() {
+function push() {
   remote=origin
   [ -z "$1" ] || remote="$1"
 
   for i in $(seq 0 $(expr $(git rev-list --walk-reflogs --count stash) - 1))
   do
-    push $i "$remote"
+    push-one $i "$remote"
   done
 }
 
-function drop-all() {
+function purge() {
   remote=origin
   [ -z "$1" ] || remote="$1"
   all=($(list $remote))
@@ -106,7 +114,7 @@ function import-all() {
   all=($(ls .git/refs/stashes))
   if [ ! -d .git/refs/stashes ]
   then
-    echo 'Error: no stashes fetched or not in a Git repo.'
+    echo 'Error: no stashes pulled or not in a Git repo.'
   fi
 
   for stash in $all
@@ -116,7 +124,7 @@ function import-all() {
 }
 
 case "$1" in
-  list|push|push-all|fetch|import|import-all|drop-all)
+  list|push|push-one|pull|pull-only|import|import-all|purge)
     "$@"
     ;;
   drop|remove|delete)
