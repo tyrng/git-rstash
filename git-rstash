@@ -156,15 +156,16 @@ function purge() {
   [ -z "$1" ] || username="$1"
   remote=origin
   [ -z "$2" ] || remote="$2"
-  all=($(list-sha $username $remote))
+  all=($(list $username $remote))
   if [ ${#all[@]} == 0 ]
   then
     echo 'Error: no stashes found in remote.'
+    return 0
   fi
 
   for stash in $all
   do
-    drop "$stash" "$remote" "y"
+    git push "$remote" :"$stash"
   done
 }
 
